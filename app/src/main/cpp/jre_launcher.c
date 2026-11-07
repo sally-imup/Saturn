@@ -4,6 +4,7 @@
  * Tahap ini cuma untuk tes JVM (-version). Stdout/stderr child diarahkan ke file.
  */
 #include <android/log.h>
+#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -27,12 +28,14 @@
 typedef void (*update_ld_path_t)(const char *);
 
 static void set_ld_path(const char *path) {
+    /*
+     * Selalu set env LD_LIBRARY_PATH juga. Launcher JDK 8 cek env ini;
+     * kalau tidak sesuai dia coba exec ulang dirinya sendiri, dan itu tidak
+     * jalan di Android (berujung crash).
+     */
+    setenv("LD_LIBRARY_PATH", path, 1);
     update_ld_path_t fn = (update_ld_path_t)dlsym(RTLD_DEFAULT, "android_update_LD_LIBRARY_PATH");
-    if (fn) {
-        fn(path);
-    } else {
-        setenv("LD_LIBRARY_PATH", path, 1);
-    }
+    if (fn) fn(path);
 }
 
 typedef jint (*JLI_Launch_t)(int argc, char **argv,
@@ -93,6 +96,15 @@ static int child_run(const char *jli_path, const char *jvm_path,
         return 101;
     }
     preload_support_libs(jli_path);
+    {
+        Dl_info info;
+        const char *env = getenv("LD_LIBRARY_PATH");
+        printf("DIAG LD_LIBRARY_PATH=%s\n", env ? env : "(null)");
+        printf("DIAG jli=%s\n", jli_path);
+        if (dladdr((void *)&child_run, &info) && info.dli_fname) {
+            printf("DIAG self=%s\n", info.dli_fname);
+        }
+    }
     void *jli = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
     if (!jli) {
         fprintf(stderr, "dlopen libjli gagal: %s\n", dlerror());
