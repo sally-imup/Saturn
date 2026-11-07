@@ -46,6 +46,12 @@ typedef jint (*JLI_Launch_t)(int argc, char **argv,
                              jboolean javaargs, jboolean cpwildcard,
                              jboolean javaw, jint ergo);
 
+/* Buang satu komponen path terakhir, mis. "/a/b/c" -> "/a/b" */
+static void strip_last(char *p) {
+    char *slash = strrchr(p, '/');
+    if (slash) *slash = '\0';
+}
+
 /*
  * JDK 8 butuh beberapa library pendukung (libverify, libjava, libnet, libnio)
  * sudah ter-load sebelum JLI_Launch. Mereka ada di folder arsitektur (lib/<arch>/).
@@ -89,6 +95,21 @@ static int child_run(const char *jli_path, const char *jvm_path,
         close(fd);
     }
 
+    /* Tanpa buffer, supaya printf sebelum crash tetap sampai ke file */
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+    /* JAVA_HOME = <home>/lib/<arch>/jli/libjli.so -> <home> */
+    char home[PATH_MAX];
+    strncpy(home, jli_path, sizeof(home) - 1);
+    home[sizeof(home) - 1] = '\0';
+    strip_last(home);   /* buang libjli.so */
+    strip_last(home);   /* buang jli */
+    strip_last(home);   /* buang arch */
+    strip_last(home);   /* buang lib */
+    setenv("JAVA_HOME", home, 1);
+    printf("DIAG JAVA_HOME=%s\n", home);
+
     set_ld_path(ld_path);
 
     if (!dlopen(jvm_path, RTLD_NOW | RTLD_GLOBAL)) {
@@ -104,6 +125,10 @@ static int child_run(const char *jli_path, const char *jvm_path,
         if (dladdr((void *)&child_run, &info) && info.dli_fname) {
             printf("DIAG self=%s\n", info.dli_fname);
         }
+        char exe[PATH_MAX];
+        ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+        if (n > 0) { exe[n] = '\0'; printf("DIAG exe=%s\n", exe); }
+        fflush(stdout);
     }
     void *jli = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
     if (!jli) {
