@@ -19,8 +19,20 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-/* Bionic: update LD_LIBRARY_PATH untuk dlopen berikutnya */
-extern void android_update_LD_LIBRARY_PATH(const char *ld_library_path);
+/*
+ * Bionic: android_update_LD_LIBRARY_PATH tidak ada di stub libdl NDK,
+ * jadi dicari saat runtime. Kalau tidak ada, fallback ke setenv.
+ */
+typedef void (*update_ld_path_t)(const char *);
+
+static void set_ld_path(const char *path) {
+    update_ld_path_t fn = (update_ld_path_t)dlsym(RTLD_DEFAULT, "android_update_LD_LIBRARY_PATH");
+    if (fn) {
+        fn(path);
+    } else {
+        setenv("LD_LIBRARY_PATH", path, 1);
+    }
+}
 
 typedef jint (*JLI_Launch_t)(int argc, char **argv,
                              int jargc, const char **jargv,
@@ -40,7 +52,7 @@ static int child_run(const char *jli_path, const char *jvm_path,
         close(fd);
     }
 
-    android_update_LD_LIBRARY_PATH(ld_path);
+    set_ld_path(ld_path);
 
     if (!dlopen(jvm_path, RTLD_NOW | RTLD_GLOBAL)) {
         fprintf(stderr, "dlopen libjvm gagal: %s\n", dlerror());
