@@ -28,7 +28,7 @@ jobs:
           SDKM=$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' | sort -V | tail -1)
           echo "Using $SDKM"
           yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" "platforms;android-34" "build-tools;34.0.0"
+          "$SDKM" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1"
 
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace

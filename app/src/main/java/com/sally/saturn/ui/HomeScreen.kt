@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -21,13 +23,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.sally.saturn.R
 import com.sally.saturn.core.GameInstaller
 import com.sally.saturn.core.GameLauncher
+import com.sally.saturn.core.JreInstaller
+import com.sally.saturn.core.JvmLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
@@ -36,10 +42,12 @@ private const val VERSION_ID = "1.16.5"
 @Composable
 fun HomeScreen(root: File) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var status by remember { mutableStateOf("Siap") }
     var busy by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("Player") }
     var installed by remember { mutableStateOf<JSONObject?>(null) }
+    var jvmOutput by remember { mutableStateOf<String?>(null) }
 
     val installer = remember {
         GameInstaller(root) { msg ->
@@ -48,7 +56,10 @@ fun HomeScreen(root: File) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -58,10 +69,7 @@ fun HomeScreen(root: File) {
             modifier = Modifier.size(120.dp)
         )
         Text("Saturn", style = MaterialTheme.typography.headlineLarge)
-        Text(
-            "Minecraft $VERSION_ID",
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Text("Minecraft $VERSION_ID", style = MaterialTheme.typography.bodyMedium)
 
         Spacer(Modifier.height(24.dp))
 
@@ -107,7 +115,46 @@ fun HomeScreen(root: File) {
             Text("Play")
         }
 
+        Spacer(Modifier.height(8.dp))
+
+        Button(
+            enabled = !busy,
+            onClick = {
+                scope.launch {
+                    busy = true
+                    try {
+                        val home = withContext(Dispatchers.IO) {
+                            JreInstaller.ensureInstalled(context, root) { msg ->
+                                scope.launch(Dispatchers.Main) { status = msg }
+                            }
+                        }
+                        status = "Menjalankan JVM..."
+                        jvmOutput = withContext(Dispatchers.IO) {
+                            JvmLauncher.runVersion(home, root)
+                        }
+                        status = "Tes JVM selesai"
+                    } catch (e: Throwable) {
+                        status = "Error: ${e.message}"
+                        jvmOutput = null
+                    } finally {
+                        busy = false
+                    }
+                }
+            }
+        ) {
+            Text("Test JVM (-version)")
+        }
+
         Spacer(Modifier.height(24.dp))
         Text(status, style = MaterialTheme.typography.bodySmall)
+
+        jvmOutput?.let { out ->
+            Spacer(Modifier.height(16.dp))
+            Text(
+                out,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
