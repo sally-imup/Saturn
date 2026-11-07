@@ -20,7 +20,10 @@ object JreInstaller {
     fun ensureInstalled(context: Context, runtimeRoot: File, log: (String) -> Unit): File {
         val home = File(runtimeRoot, "jre8")
         val marker = File(home, MARKER)
-        if (marker.exists()) return home
+        if (marker.exists()) {
+            fixExecutables(home)
+            return home
+        }
 
         val archive = File(context.cacheDir, "jre8-android-arm64.tar.xz")
         log("Download JRE 8...")
@@ -34,7 +37,13 @@ object JreInstaller {
         marker.writeText("ok")
         archive.delete()
         log("JRE siap")
+        fixExecutables(home)
         return home
+    }
+
+    /** Semua file di bin/ harus bisa dieksekusi (termasuk yang sudah ter-extract sebelumnya). */
+    fun fixExecutables(home: File) {
+        File(home, "bin").listFiles()?.forEach { it.setExecutable(true, false) }
     }
 
     private fun extract(input: InputStream, dest: File) {
@@ -53,7 +62,9 @@ object JreInstaller {
                     else -> {
                         out.parentFile?.mkdirs()
                         FileOutputStream(out).use { tar.copyTo(it, 8192) }
-                        if ((entry.mode and 0b001001001) != 0) out.setExecutable(true, false)
+                        if ((entry.mode and 0b001001001) != 0 || entry.name.contains("bin/")) {
+                            out.setExecutable(true, false)
+                        }
                     }
                 }
                 entry = tar.nextTarEntry

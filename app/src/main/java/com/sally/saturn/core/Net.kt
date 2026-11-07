@@ -9,8 +9,8 @@ import java.util.UUID
 object Net {
     private fun open(url: String): InputStream {
         val c = URL(url).openConnection() as HttpURLConnection
-        c.connectTimeout = 15_000
-        c.readTimeout = 30_000
+        c.connectTimeout = 30_000
+        c.readTimeout = 60_000
         c.instanceFollowRedirects = true
         if (c.responseCode !in 200..299) {
             throw IllegalStateException("HTTP ${c.responseCode}: $url")

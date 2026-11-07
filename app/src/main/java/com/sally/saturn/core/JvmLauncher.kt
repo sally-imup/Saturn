@@ -42,6 +42,8 @@ object JvmLauncher {
             "/system/lib64"
         ).joinToString(":")
         AppLog.i("LD_LIBRARY_PATH: $ld")
+        val javaBin = File(home, "bin/java")
+        AppLog.i("bin/java: ada=${javaBin.exists()} executable=${javaBin.canExecute()}")
 
         val out = File(workDir, "jvm_out.txt")
         out.delete()

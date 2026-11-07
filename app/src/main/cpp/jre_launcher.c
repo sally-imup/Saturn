@@ -111,6 +111,11 @@ static int child_run(const char *jli_path, const char *jvm_path,
     printf("DIAG JAVA_HOME=%s\n", home);
 
     set_ld_path(ld_path);
+    /*
+     * JDK 8 launcher mengeksekusi ulang bin/java kalau menganggap environment
+     * belum siap. Di Android itu gagal. Tandai bahwa re-exec sudah dilakukan.
+     */
+    setenv("_JAVA_VERSION_SET", "1.8.0-internal", 1);
 
     if (!dlopen(jvm_path, RTLD_NOW | RTLD_GLOBAL)) {
         fprintf(stderr, "dlopen libjvm gagal: %s\n", dlerror());
