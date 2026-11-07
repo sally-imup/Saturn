@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="110" fill="#1B1F3B"/>
+  <!-- Cincin belakang -->
+  <ellipse cx="256" cy="256" rx="160" ry="46" transform="rotate(-20 256 256)"
+           fill="none" stroke="#C9A66B" stroke-width="22" stroke-opacity="0.85"/>
+  <!-- Planet -->
+  <circle cx="256" cy="256" r="80" fill="#F4D58D"/>
+  <circle cx="232" cy="232" r="22" fill="#FFF3CC" opacity="0.5"/>
+  <!-- Cincin depan -->
+  <path d="M96 256 A160 46 -20 0 0 416 256" fill="none" stroke="#E0B870" stroke-width="22"
+        transform="rotate(0 256 256)"/>
+</svg>

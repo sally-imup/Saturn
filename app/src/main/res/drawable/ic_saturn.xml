@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="512dp"
+    android:height="512dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- Cincin belakang -->
+    <path
+        android:pathData="M96,256 A160,46 -20 1 0 416,256 A160,46 -20 1 0 96,256 Z"
+        android:strokeColor="#C9A66B"
+        android:strokeWidth="22"
+        android:fillColor="#00000000" />
+    <!-- Planet -->
+    <path
+        android:pathData="M336,256 A80,80 0 1 1 176,256 A80,80 0 1 1 336,256 Z"
+        android:fillColor="#F4D58D" />
+    <!-- Cincin depan -->
+    <path
+        android:pathData="M96,256 A160,46 -20 0 0 416,256"
+        android:strokeColor="#E0B870"
+        android:strokeWidth="22"
+        android:fillColor="#00000000" />
+</vector>
