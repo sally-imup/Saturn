@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <jni.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,6 +43,39 @@ typedef jint (*JLI_Launch_t)(int argc, char **argv,
                              jboolean javaargs, jboolean cpwildcard,
                              jboolean javaw, jint ergo);
 
+/*
+ * JDK 8 butuh beberapa library pendukung (libverify, libjava, libnet, libnio)
+ * sudah ter-load sebelum JLI_Launch. Mereka ada di folder arsitektur (lib/<arch>/).
+ * Path folder itu diambil dari path libjli: <arch>/jli/libjli.so.
+ */
+static void preload_support_libs(const char *jli_path) {
+    char arch[PATH_MAX];
+    strncpy(arch, jli_path, sizeof(arch) - 1);
+    arch[sizeof(arch) - 1] = '\0';
+
+    char *slash = strrchr(arch, '/');
+    if (slash) {
+        *slash = '\0';                 /* buang /libjli.so */
+        slash = strrchr(arch, '/');
+        if (slash) *slash = '\0';      /* buang /jli */
+    }
+
+    static const char *const names[] = {
+        "libverify.so", "libjava.so", "libnet.so", "libnio.so", "libzip.so", NULL
+    };
+    for (int i = 0; names[i]; i++) {
+        char path[PATH_MAX];
+        snprintf(path, sizeof(path), "%s/%s", arch, names[i]);
+        if (access(path, F_OK) != 0) {
+            fprintf(stderr, "preload: %s tidak ada\n", path);
+            continue;
+        }
+        if (!dlopen(path, RTLD_NOW | RTLD_GLOBAL)) {
+            fprintf(stderr, "preload %s gagal: %s\n", names[i], dlerror());
+        }
+    }
+}
+
 /* Jalan di proses child. Tidak boleh memakai JNI di sini. */
 static int child_run(const char *jli_path, const char *jvm_path,
                      const char *ld_path, char **argv, const char *out_path) {
@@ -58,6 +92,7 @@ static int child_run(const char *jli_path, const char *jvm_path,
         fprintf(stderr, "dlopen libjvm gagal: %s\n", dlerror());
         return 101;
     }
+    preload_support_libs(jli_path);
     void *jli = dlopen(jli_path, RTLD_NOW | RTLD_GLOBAL);
     if (!jli) {
         fprintf(stderr, "dlopen libjli gagal: %s\n", dlerror());
