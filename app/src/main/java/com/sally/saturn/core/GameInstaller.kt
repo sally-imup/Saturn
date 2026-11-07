@@ -65,20 +65,22 @@ class GameInstaller(
         val sem = Semaphore(8)
 
         log("Download libraries...")
+        // Satu artifact bisa muncul berkali-kali di manifest (beda rules),
+        // jadi dedupe by path supaya tidak ada dua download ke file yang sama.
         val libs = json.getJSONArray("libraries")
+        val libTasks = LinkedHashMap<String, String>() // path -> url
+        for (i in 0 until libs.length()) {
+            val lib = libs.getJSONObject(i)
+            if (!libraryAllowed(lib)) continue
+            // TODO: natives (classifiers) belum diunduh
+            val artifact = lib.optJSONObject("downloads")?.optJSONObject("artifact") ?: continue
+            libTasks.putIfAbsent(artifact.getString("path"), artifact.getString("url"))
+        }
         coroutineScope {
-            (0 until libs.length()).map { i ->
+            libTasks.map { (path, url) ->
                 async {
-                    val lib = libs.getJSONObject(i)
-                    if (!libraryAllowed(lib)) return@async
-                    // TODO: natives (classifiers) belum diunduh
-                    val artifact = lib.optJSONObject("downloads")?.optJSONObject("artifact")
-                        ?: return@async
                     sem.withPermit {
-                        Net.downloadTo(
-                            artifact.getString("url"),
-                            File(librariesDir, artifact.getString("path"))
-                        )
+                        Net.downloadTo(url, File(librariesDir, path))
                     }
                 }
             }.awaitAll()
@@ -89,14 +91,17 @@ class GameInstaller(
         val indexFile = File(assetsDir, "indexes/${idx.getString("id")}.json")
         Net.downloadTo(idx.getString("url"), indexFile)
         val objects = JSONObject(indexFile.readText()).getJSONObject("objects")
-        val keys = objects.keys().asSequence().toList()
+        // Beberapa asset punya hash sama, dedupe supaya tidak tabrakan
+        val hashes = objects.keys().asSequence()
+            .map { objects.getJSONObject(it).getString("hash") }
+            .distinct()
+            .toList()
 
-        log("Download ${keys.size} assets...")
+        log("Download ${hashes.size} assets...")
         coroutineScope {
-            keys.map { key ->
+            hashes.map { hash ->
                 async {
                     sem.withPermit {
-                        val hash = objects.getJSONObject(key).getString("hash")
                         val prefix = hash.substring(0, 2)
                         Net.downloadTo(
                             "$assetBase/$prefix/$hash",
